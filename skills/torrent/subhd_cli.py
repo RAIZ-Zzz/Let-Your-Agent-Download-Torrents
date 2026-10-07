@@ -105,11 +105,17 @@ def cmd_get(a):
     url, err = direct_url(pick["sid"])
     if not url:
         sys.exit(f"SubHD refused the download: {err}")
-    os.makedirs(a.dest, exist_ok=True)
     data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
-    ext = os.path.splitext(urllib.parse.urlparse(url).path)[1].lower()
+    files = save(data, os.path.splitext(urllib.parse.urlparse(url).path)[1], pick["title"], a.dest)
+    print(json.dumps({**pick, "dest": a.dest, "files": files}, ensure_ascii=False, indent=1))
+
+
+def save(data, ext, name, dest):
+    """Write one subtitle file as <name><ext>, or unpack a zip/7z/rar, into dest; return every file under dest."""
+    os.makedirs(dest, exist_ok=True)
+    ext = ext.lower()
     if ext in (".srt", ".ass", ".ssa"):
-        open(os.path.join(a.dest, f"{pick['title'][:150]}{ext}"), "wb").write(data)
+        open(os.path.join(dest, re.sub(r'[\\/:*?"<>|]', " ", name)[:150] + ext), "wb").write(data)
     else:  # zip / 7z / rar; bsdtar refuses absolute and ../ paths by default
         with tempfile.TemporaryDirectory() as tmp:
             arc = os.path.join(tmp, "sub" + ext)
@@ -119,9 +125,8 @@ def cmd_get(a):
             gbk = ["--options", "hdrcharset=CP936"] if ext == ".zip" else []
             tar = (os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "tar.exe") if os.name == "nt"
                    else "bsdtar" if shutil.which("bsdtar") else "tar")  # needs bsdtar (macOS: built in; Linux: libarchive-tools)
-            subprocess.run([tar, *gbk, "-xf", arc, "-C", a.dest], check=True)
-    files = [os.path.relpath(os.path.join(d, f), a.dest) for d, _, fs in os.walk(a.dest) for f in fs]
-    print(json.dumps({**pick, "dest": a.dest, "files": files}, ensure_ascii=False, indent=1))
+            subprocess.run([tar, *gbk, "-xf", arc, "-C", dest], check=True)
+    return [os.path.relpath(os.path.join(d, f), dest) for d, _, fs in os.walk(dest) for f in fs]
 
 
 def main():

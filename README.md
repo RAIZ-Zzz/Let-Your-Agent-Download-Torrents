@@ -12,6 +12,14 @@ What the search keeps:
 - Ranked healthy swarms first, then resolution, Remux > BluRay > WEB, Dolby Vision > HDR, lossless audio, seeders.
 - Every result becomes a magnet link (Jackett's local download links stop working once it is shut down).
 
+**Anime mode** (`/torrent 葬送的芙莉莲 动漫`, or automatic for Japanese animation): searches by the romanized title,
+keeps fansub releases whose Chinese subtitles are a switchable track (`内封`), drops burned-in ones (`内嵌`, plain
+`简体` MP4s), and ranks healthy `内封` releases first, so most picks need no separate subtitle at all.
+
+**Subtitles**: [SubHD](https://subhd.me) first; when it has nothing (common for anime), the
+[sub_share](https://github.com/foxofice/sub_share) anime archive (no longer updated since Sep 2025) and
+[assrt.net](https://assrt.net) (needs a free API token). 字幕服务由 [assrt.net](https://assrt.net) 提供.
+
 The agent replies in Chinese by default (edit step 5 of `skills/torrent/SKILL.md` to change that).
 
 ## Prerequisites
@@ -38,6 +46,7 @@ python install.py --jackett "C:/Jackett" --client "C:/Program Files/qBittorrent/
 `.bat`/`.cmd` wrapper). Downloads land in the client's own default folder. `TORRENT_CLIENT=<exe>` overrides it for one run.
 
 Other options: `--flaresolverr <dir>`, `--subs <dir>` (subtitle folder, default `~/Videos`),
+`--assrt-token <token>` (register at assrt.net, copy the API token from the user panel; or set `ASSRT_TOKEN`),
 `--target <dir>` (default `~/.claude/skills/torrent`), `--no-pip`. Re-run to change any of them.
 
 The installer pip-installs `parsett`, copies the skill to `~/.claude/skills/torrent`, and writes `config.json` there
@@ -54,6 +63,7 @@ In Claude Code:
 /torrent tt1160419                     # by IMDb id
 /torrent Dune Part Two 4k             # 4K only
 /torrent Ahsoka season 1 best          # top 3 by picture + sound quality
+/torrent 葬送的芙莉莲 第二季 动漫        # anime: fansub releases with Chinese soft subs first
 ```
 
 Reply with the row numbers (e.g. `3` or `1,3`) to start those downloads.
@@ -64,6 +74,7 @@ The CLIs also work on their own:
 python ~/.claude/skills/torrent/jackett_cli.py search "dune 2021" -c 2000,5000 -q 1080p+ --clean --magnet -n 10
 python ~/.claude/skills/torrent/download.py "magnet:?xt=urn:btih:..."
 python ~/.claude/skills/torrent/subhd_cli.py find "沙丘" --year 2021
+python ~/.claude/skills/torrent/subs_cli.py share "葬送的芙莉莲" --year 2023
 ```
 
 Offline self-check: `python skills/torrent/test_cli.py`.

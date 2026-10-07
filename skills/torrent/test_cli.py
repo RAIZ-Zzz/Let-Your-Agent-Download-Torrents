@@ -61,6 +61,24 @@ assert c("Breaking.Bad.S02E05.1080p.WEB") == ("episode", (2, 5))
 assert c("Breaking Bad S01E01-E07 1080p") == (None, None)
 assert c("Breaking Bad The Complete Series 1080p") == ("complete", None)
 
+# anime: fansub 内封 = Chinese soft subs (kept, Japanese audio); 简体/内嵌/CHS without 内封 = burned in (dropped)
+frieren = {
+    "[绿茶字幕组] 葬送的芙莉莲 第二季 / Sousou no Frieren S2 [38][WebRip][1080p][简繁日内封]": True,
+    "[喵萌奶茶屋&LoliHouse] 葬送的芙莉莲 / Sousou no Frieren - 01 [WebRip 1080p HEVC-10bit AAC][简繁日内封字幕]": True,
+    "[9volt] Sousou no Frieren - 37 (S02E09) (WEB 1080p HEVC EAC-3)": True,
+    "[桜都字幕组] 葬送的芙莉莲 / Sousou no Frieren [01][1080p][简体内嵌]": False,
+    "[某字幕组] Sousou no Frieren [01][1080P][简体][MP4]": False,
+}
+got = kept(list(frieren), "sousou no frieren", "ja", titles=["Frieren", "Sousou no Frieren", "葬送的芙莉莲"])
+assert set(got) == {t for t, ok in frieren.items() if ok}, sorted(set(got) ^ {t for t, ok in frieren.items() if ok})
+assert kept(["阿索卡第一季.2023.S01E08.End.HD1080P.AAC.H264.CHS-ENG.BTSJ6"], "ahsoka", titles=["Ahsoka", "阿索卡"]) == []
+an = lambda seeds, anime: [r["Title"][:6] for r in j.refine(
+    [{"Title": t, "Seeders": s, "Size": i} for i, (t, s) in enumerate(zip(list(frieren)[:3], seeds))],
+    "sousou no frieren", "1080p+", True, "ja", ["Sousou no Frieren"], anime=anime)]
+assert an((10, 6, 136), True) == ["[绿茶字幕组", "[喵萌奶茶屋", "[9volt"]   # healthy 内封 above a better-seeded English release
+assert an((10, 6, 136), False)[0] == "[9volt"                        # off by default
+assert an((2, 1, 136), True)[0] == "[9volt"                          # a dying 内封 swarm does not jump the queue
+
 
 # SubHD ranking (offline): Chinese text subs only, same source family first, then trust, language, group, downloads
 import subhd_cli as sh

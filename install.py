@@ -5,6 +5,7 @@
       [--flaresolverr "C:/flaresolverr"]              # optional; default: a `flaresolverr` folder next to Jackett's
       [--client "C:/Program Files/qBittorrent/qbittorrent.exe"]   # optional; default: the OS magnet handler
       [--subs "~/Videos"]                             # where Chinese subtitles are saved
+      [--assrt-token TOKEN]                           # optional; free assrt.net API token for extra subtitles
       [--target "~/.claude/skills/torrent"]           # where the skill goes
       [--no-pip]
 
@@ -26,6 +27,7 @@ def main():
     p.add_argument("--flaresolverr", help="FlareSolverr folder (optional)")
     p.add_argument("--client", help="torrent client executable (optional; default: the OS magnet handler)")
     p.add_argument("--subs", default="~/Videos", help="subtitle download folder")
+    p.add_argument("--assrt-token", help="assrt.net API token (optional; kept from the previous install if omitted)")
     p.add_argument("--target", default="~/.claude/skills/torrent", help="skill install folder")
     p.add_argument("--no-pip", action="store_true", help="skip installing Python packages")
     a = p.parse_args()
@@ -57,7 +59,11 @@ def main():
     text = open(skill, encoding="utf-8").read()
     text = text.replace("{SKILL_DIR}", target.replace("\\", "/")).replace("{SUBTITLE_DIR}", subs.replace("\\", "/"))
     open(skill, "w", encoding="utf-8").write(text)
-    json.dump({"jackett_dir": jackett, "flaresolverr_dir": flare, "client": client}, open(os.path.join(target, "config.json"), "w"), indent=1)
+    cfg_file = os.path.join(target, "config.json")
+    old = json.load(open(cfg_file, encoding="utf-8")) if os.path.exists(cfg_file) else {}
+    cfg = {"jackett_dir": jackett, "flaresolverr_dir": flare, "client": client,
+           "assrt_token": a.assrt_token or old.get("assrt_token")}
+    json.dump(cfg, open(cfg_file, "w", encoding="utf-8"), indent=1)
 
     print(f"Installed to {target}; downloads go to {client or 'the default magnet app'}")
 

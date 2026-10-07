@@ -54,6 +54,10 @@ def rank(r):
     return (r["Seeders"] >= MIN_SEEDS, RES_RANK.get(p.get("resolution"), 0), src,
             2 if "DV" in hdr else 1 if {"HDR", "HDR10+"} & set(hdr) else 0,
             codec, "Atmos" in audio, 2 if "7.1" in ch else 1 if "5.1" in ch else 0, r["Seeders"])
+# Chinese fansub tags: 内封/外挂 = switchable subtitle track; other Chinese sub tags (简体, CHS, 中字…) without it
+# mean burned-in subs. ponytail: title tags only; a Chinese-site MKV tagged just "简繁英字幕" is dropped as hardsub.
+SOFTSUB = re.compile(r"内封|內封|外挂|外掛")
+ZHSUB = re.compile(r"简|簡|繁|中字|中文|\bCH[ST]\b|\bBIG5\b", re.I)
 DISC = re.compile(r"\b(bdmv|bd(?:25|50|66|100)|iso|complete[ ._-]+(?:uhd[ ._-]+)?blu-?ray)\b", re.I)  # BR-DISK
 _YEAR, _SE = r"\b(?:19|20)\d{2}\b", r"\bs(\d{1,2})(?:e(\d{1,3}))?\b"
 
@@ -72,9 +76,12 @@ def same_title(parsed, wanted):
 def original_audio(p, title, lang):
     """No burned-in subs, audio in the original language.
     ponytail: judged from title tags only; real audio/sub tracks are only knowable after fetching the files."""
-    if p.get("hardcoded"):
+    soft = SOFTSUB.search(title)
+    if p.get("hardcoded") or (lang != "zh" and ZHSUB.search(title) and not soft):
         return False
     langs = p.get("languages") or []
+    if soft and lang != "zh":  # "简繁内封" names the subtitle tracks, not a Chinese dub
+        langs = [l for l in langs if l != "zh"]
     if langs and lang not in langs and not p.get("subbed"):  # e.g. a Japanese film tagged only 'en' = English dub
         return False
     return not (p.get("dubbed") and lang not in langs and not re.search(r"dual|multi", title, re.I))
@@ -260,9 +267,10 @@ def fetch(query, cat=None, indexers=None):
     return res["Results"]
 
 
-def refine(results, query, quality=None, clean=False, lang="en", titles=(), words=False):
+def refine(results, query, quality=None, clean=False, lang="en", titles=(), words=False, anime=False):
     """Live, same-title, quality/clean-filtered, junk-free, cross-tracker-deduped; best tier first, then seeders.
-    words=True matches by query words instead of title similarity (release codes, adult titles)."""
+    words=True matches by query words instead of title similarity (release codes, adult titles).
+    anime=True puts healthy releases with Chinese soft subs (fansub 内封) above everything else."""
     ql = query.lower()
     years = [int(y) for y in re.findall(_YEAR, ql)]
     se = re.search(_SE, ql)
@@ -293,7 +301,8 @@ def refine(results, query, quality=None, clean=False, lang="en", titles=(), word
         if not keys & seen:
             uniq.append(r)
         seen |= keys
-    return sorted(uniq, key=rank, reverse=True)
+    return sorted(uniq, reverse=True, key=lambda r: (
+        anime and r["Seeders"] >= MIN_SEEDS and bool(SOFTSUB.search(r["Title"])), *rank(r)))
 
 
 def with_magnets(items, n):
@@ -339,7 +348,7 @@ def per_resolution(items, cap):
 
 def cmd_search(a):
     results = fetch(a.query, a.cat, a.indexers)
-    items = refine(results, a.query, a.quality, a.clean, a.lang, a.title, a.words)
+    items = refine(results, a.query, a.quality, a.clean, a.lang, a.title, a.words, a.anime)
     if (a.quality or "").lower() == "1080p+" and not a.best:
         items = per_resolution(items, -(-a.n // 2))
     items = with_magnets(items, a.n) if a.magnet else items[:a.n]
@@ -426,6 +435,7 @@ def main():
     se.add_argument("--title", action="append", default=[], help="canonical title / alias to match; repeatable")
     se.add_argument("--words", action="store_true", help="match by query words, not title similarity (codes)")
     se.add_argument("--best", action="store_true", help="pure quality ranking: no per-resolution cap")
+    se.add_argument("--anime", action="store_true", help="healthy Chinese soft-sub (内封) fansub releases first")
     se.add_argument("--magnet", action="store_true", help="resolve .torrent-only results to magnet links")
     se.add_argument("-n", type=int, default=20); se.add_argument("--json", action="store_true")
     sh = s.add_parser("show", help="season packs + complete-series packs for a TV show (JSON)")
