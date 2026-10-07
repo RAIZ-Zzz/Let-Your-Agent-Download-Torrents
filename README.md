@@ -18,7 +18,10 @@ keeps fansub releases whose Chinese subtitles are a switchable track (`内封`),
 
 **Subtitles**: [SubHD](https://subhd.me) first; when it has nothing (common for anime), the
 [sub_share](https://github.com/foxofice/sub_share) anime archive (no longer updated since Sep 2025) and
-[assrt.net](https://assrt.net) (needs a free API token). 字幕服务由 [assrt.net](https://assrt.net) 提供.
+[assrt.net](https://assrt.net) (needs a free API token), the [Anime字幕论坛](https://bbs.acgrip.com) (needs an
+account: run `python ~/.claude/skills/torrent/subs_cli.py acgrip-login` once in your own terminal), and as a last
+resort the Thunder player's subtitle index (no account; kept only when the text is Chinese).
+字幕服务由 [assrt.net](https://assrt.net) 提供.
 
 The agent replies in Chinese by default (edit step 5 of `skills/torrent/SKILL.md` to change that).
 

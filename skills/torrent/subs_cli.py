@@ -6,7 +6,8 @@ r"""More Chinese subtitle sources for /torrent when SubHD has none (mostly anime
   python subs_cli.py assrt-get <id> --dest DIR
   python subs_cli.py xunlei "<release title or file name>" --dest DIR [-n 1]   # Thunder player search, no login
   python subs_cli.py acgrip "芙莉莲"                                  # bbs.acgrip.com (Anime字幕论坛) threads
-  python subs_cli.py acgrip-get <tid> --dest DIR [--grep "\[05\]"]      # attachments; needs a login cookie
+  python subs_cli.py acgrip-login                                      # once, in your own terminal
+  python subs_cli.py acgrip-get <tid> --dest DIR [--grep "\[05\]"]      # attachments (needs acgrip-login)
 
 sub_share stopped updating in Sep 2025. GITHUB_TOKEN (optional) lifts GitHub's 60 requests/hour limit.
 assrt.net token: register at assrt.net, copy the API token from the user panel, then set ASSRT_TOKEN
@@ -183,15 +184,40 @@ def cmd_acgrip(a):
     print(json.dumps(out[:a.n], ensure_ascii=False, indent=1))
 
 
+def cmd_acgrip_login(a):
+    """Log in with a username + password typed here (never on the command line or in chat); saves the
+    30-day session cookie to config.json. Run it in your own terminal."""
+    import getpass, http.cookiejar
+    jar = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    op.addheaders = [("User-Agent", "Mozilla/5.0")]
+    form = op.open(ACG + "member.php?mod=logging&action=login&infloat=yes&inajax=1", timeout=30).read().decode("utf-8", "replace")
+    formhash, loginhash = re.search(r'name="formhash" value="(\w+)"', form), re.search(r"loginhash=(\w+)", form)
+    if not (formhash and loginhash):
+        sys.exit("bbs.acgrip.com login form changed; log in is not possible from here")
+    user = a.user or input("bbs.acgrip.com username: ").strip()
+    body = urllib.parse.urlencode({"formhash": formhash[1], "referer": ACG, "loginfield": "username", "username": user,
+                                   "password": getpass.getpass("password (typing is hidden): "), "questionid": 0,
+                                   "answer": "", "cookietime": 2592000}).encode()
+    reply = op.open(ACG + f"member.php?mod=logging&action=login&loginsubmit=yes&handlekey=login&loginhash={loginhash[1]}"
+                    "&inajax=1", body, timeout=30).read().decode("utf-8", "replace")
+    if not any(c.name.endswith("_auth") for c in jar):
+        msg = re.search(r"CDATA\[(.*?)(?:<script|\]\])", reply, re.S)
+        sys.exit("Login failed: " + (text(msg[1]) if msg else "no session cookie returned")[:200])
+    cfg = json.load(open(_CFG, encoding="utf-8")) if os.path.exists(_CFG) else {}
+    cfg["acgrip_cookie"] = "; ".join(f"{c.name}={c.value}" for c in jar)
+    json.dump(cfg, open(_CFG, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(f"Logged in as {user}; session saved to {_CFG} (valid about 30 days)")
+
+
 def cmd_acgrip_get(a):
     """Download a thread's attachments (needs the logged-in cookie) and list any cloud-drive links it posts."""
     cookie = secret("acgrip_cookie")
     if not cookie:
-        sys.exit("bbs.acgrip.com attachments need a login: log in in your browser, copy the Cookie request header "
-                 "(F12 > Network > any bbs.acgrip.com request), then set ACGRIP_COOKIE or \"acgrip_cookie\" in " + _CFG)
+        sys.exit(f"bbs.acgrip.com attachments need a login: run  python \"{__file__}\" acgrip-login  in your own terminal")
     t = page(ACG + f"forum.php?mod=viewthread&tid={a.tid}", cookie)
     if "您需要登录" in t or "mod=logging&amp;action=login" in t and "action=logout" not in t:
-        sys.exit("bbs.acgrip.com says you are not logged in: the cookie expired, copy it again")
+        sys.exit(f"bbs.acgrip.com login expired: run  python \"{__file__}\" acgrip-login  in your own terminal")
     links = sorted(set(re.findall(r'https?://(?:pan\.baidu\.com|www\.alipan\.com|www\.aliyundrive\.com|pan\.quark\.cn|'
                                   r'cloud\.189\.cn|pan\.xunlei\.com|mega\.nz|drive\.google\.com|1drv\.ms)[^\s"<>]*', t)))
     codes = sorted(set(re.findall(r"(?:提取码|密码|pwd)[:：\s]*([A-Za-z0-9]{4})", text(t))))
@@ -220,6 +246,7 @@ def main():
     x = s.add_parser("xunlei"); x.set_defaults(f=cmd_xunlei); x.add_argument("query")
     x.add_argument("--dest", required=True); x.add_argument("-n", type=int, default=1, help="Chinese subtitles to keep")
     x = s.add_parser("acgrip"); x.set_defaults(f=cmd_acgrip); x.add_argument("query"); x.add_argument("-n", type=int, default=15)
+    x = s.add_parser("acgrip-login"); x.set_defaults(f=cmd_acgrip_login); x.add_argument("--user")
     x = s.add_parser("acgrip-get"); x.set_defaults(f=cmd_acgrip_get); x.add_argument("tid")
     x.add_argument("--dest", required=True); x.add_argument("--grep", help="regex on attachment names")
     a = p.parse_args()

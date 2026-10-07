@@ -61,7 +61,7 @@ def main():
     open(skill, "w", encoding="utf-8").write(text)
     cfg_file = os.path.join(target, "config.json")
     old = json.load(open(cfg_file, encoding="utf-8")) if os.path.exists(cfg_file) else {}
-    cfg = {"jackett_dir": jackett, "flaresolverr_dir": flare, "client": client,
+    cfg = {**old, "jackett_dir": jackett, "flaresolverr_dir": flare, "client": client,  # keeps logins (acgrip_cookie)
            "assrt_token": a.assrt_token or old.get("assrt_token")}
     json.dump(cfg, open(cfg_file, "w", encoding="utf-8"), indent=1)
 
