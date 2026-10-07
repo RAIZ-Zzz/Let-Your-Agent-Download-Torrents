@@ -1,0 +1,2 @@
+parsett>=1.8
+PikPakAPI>=0.1.11
