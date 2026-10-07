@@ -174,7 +174,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def to_magnet(link):
     """Turn a Jackett /dl link (.torrent or redirect-to-magnet) into a magnet URI; None on failure.
-    Cloud downloaders like PikPak can't reach 127.0.0.1 links, so they need the magnet."""
+    Jackett's 127.0.0.1 links stop working once the CLI shuts Jackett down, so clients need the magnet."""
     try:
         with urllib.request.build_opener(_NoRedirect).open(link, timeout=90) as r:
             data = r.read()

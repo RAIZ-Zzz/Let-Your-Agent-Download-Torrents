@@ -70,4 +70,19 @@ subs = [S("web", "Show.S01E03.1080p.WEB-DL", ["官方字幕"], dl=900), S("bd", 
         S("sup", "Show.S01E03.1080p.BluRay", ["精选推荐"], fmts=["SUP"]), S("en", "Show.S01E03.1080p.BluRay", langs=["英语"]),
         S("e04", "Show.S01E04.1080p.BluRay", ["精选推荐"]), S("pack", "Show.S01.1080p.BluRay", ["原创翻译"], ["双语"])]
 assert [s["sid"] for s in sh.rank(subs, "Show.S01E03.2160p.BluRay.x265-GRP")] == ["pack", "bd", "web"]
+# download.py: one launch per magnet, argv intact; OS handler when no client; batch files and non-magnets refused
+import download as dl
+calls = []
+dl.subprocess.Popen = lambda argv, **kw: calls.append(argv)
+dl.os.startfile = lambda m: calls.append(["startfile", m])
+mags = ["magnet:?xt=urn:btih:abc&dn=A%20B&tr=udp%3A%2F%2Fx", "magnet:?xt=urn:btih:def"]
+dl.launch(mags, "C:/qbt/qbittorrent.exe")
+assert calls == [["C:/qbt/qbittorrent.exe", m] for m in mags], calls
+calls.clear(); dl.launch(mags[:1])
+assert calls == ([["startfile", mags[0]]] if dl.os.name == "nt" else [[calls[0][0], mags[0]]]), calls
+for bad in ((mags, "C:/x/client.BAT"), (["C:/Windows/System32/calc.exe"], None)):
+    try:
+        dl.launch(*bad); raise AssertionError(bad)
+    except SystemExit:
+        pass
 print("all ok")

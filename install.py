@@ -3,11 +3,12 @@
 
   python install.py --jackett "C:/Jackett"            # the folder holding JackettConsole.exe (or `jackett` on Linux/macOS)
       [--flaresolverr "C:/flaresolverr"]              # optional; default: a `flaresolverr` folder next to Jackett's
+      [--client "C:/Program Files/qBittorrent/qbittorrent.exe"]   # optional; default: the OS magnet handler
       [--subs "~/Videos"]                             # where Chinese subtitles are saved
       [--target "~/.claude/skills/torrent"]           # where the skill goes
       [--no-pip]
 
-Re-run any time to change a path; it overwrites the installed copy (your PikPak login lives elsewhere and is kept).
+Re-run any time to change a path; it overwrites the installed copy.
 """
 import argparse, json, os, shutil, subprocess, sys
 
@@ -23,6 +24,7 @@ def main():
     p = argparse.ArgumentParser(description="Install the /torrent skill")
     p.add_argument("--jackett", help="Jackett install folder (prompted if omitted)")
     p.add_argument("--flaresolverr", help="FlareSolverr folder (optional)")
+    p.add_argument("--client", help="torrent client executable (optional; default: the OS magnet handler)")
     p.add_argument("--subs", default="~/Videos", help="subtitle download folder")
     p.add_argument("--target", default="~/.claude/skills/torrent", help="skill install folder")
     p.add_argument("--no-pip", action="store_true", help="skip installing Python packages")
@@ -38,6 +40,9 @@ def main():
             sys.exit(f"No flaresolverr executable in {flare}")
         print("FlareSolverr not found; Cloudflare-protected indexers may fail (optional, see README)")
         flare = None
+    client = a.client and os.path.abspath(os.path.expanduser(a.client.strip('"')))
+    if client and (not os.path.isfile(client) or client.lower().endswith((".bat", ".cmd"))):
+        sys.exit(f"--client must be the client's executable, not a batch file: {client}")
     subs = os.path.abspath(os.path.expanduser(a.subs))
     target = os.path.abspath(os.path.expanduser(a.target))
 
@@ -52,9 +57,9 @@ def main():
     text = open(skill, encoding="utf-8").read()
     text = text.replace("{SKILL_DIR}", target.replace("\\", "/")).replace("{SUBTITLE_DIR}", subs.replace("\\", "/"))
     open(skill, "w", encoding="utf-8").write(text)
-    json.dump({"jackett_dir": jackett, "flaresolverr_dir": flare}, open(os.path.join(target, "config.json"), "w"), indent=1)
+    json.dump({"jackett_dir": jackett, "flaresolverr_dir": flare, "client": client}, open(os.path.join(target, "config.json"), "w"), indent=1)
 
-    print(f"Installed to {target}\nNext: python \"{os.path.join(target, 'pikpak_cli.py')}\" login")
+    print(f"Installed to {target}; downloads go to {client or 'the default magnet app'}")
 
 
 if __name__ == "__main__":

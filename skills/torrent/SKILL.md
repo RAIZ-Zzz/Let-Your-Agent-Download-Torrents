@@ -1,20 +1,19 @@
 ---
 name: torrent
-description: Search a local Jackett for live 1080p-or-better torrents of a movie or TV show, by IMDb ID (tt1234567) or title; original audio only, no hardcoded subs, most-seeded first; after the user picks rows, saves them into their PikPak drive (given folder, or one named after the title) under clean names. Adult mode with an `18+` argument. Use when the user types "/torrent <imdb id | title> [2160p] [18+] [pikpak folder]" (e.g. "/torrent tt1160419", "/torrent Dune Part Two 4k /Movies") or asks to find a torrent / magnet for a film or show.
-argument-hint: <imdb id tt... | title | code> [2160p|4k|最好] [18+] [/PikPak/folder]
+description: Search a local Jackett for live 1080p-or-better torrents of a movie or TV show, by IMDb ID (tt1234567) or title; original audio only, no hardcoded subs, most-seeded first; after the user picks rows, sends their magnets to the user's torrent client and fetches Chinese subtitles. Adult mode with an `18+` argument. Use when the user types "/torrent <imdb id | title> [2160p] [18+]" (e.g. "/torrent tt1160419", "/torrent Dune Part Two 4k") or asks to find a torrent / magnet for a film or show.
+argument-hint: <imdb id tt... | title | code> [2160p|4k|最好] [18+]
 ---
 
 # /torrent
 
-User's standing requirements: **1080p or better** (never show lower), **original-language audio** (no dubs, even if a Chinese dub exists), **no hardcoded subtitles** (they add their own), **most seeders**. Downloads go through **PikPak**: show the results, let the user pick, then save the picks into PikPak (step 6). Never save before the user picks.
+User's standing requirements: **1080p or better** (never show lower), **original-language audio** (no dubs, even if a Chinese dub exists), **no hardcoded subtitles** (they add their own), **most seeders**. Downloads go through the user's **torrent client**: show the results, let the user pick, then send the picks to it (step 6). Never send anything before the user picks.
 
 ## Arguments
 
 - Quality: default `1080p+` (1080p and 4K). If the user adds `2160p` / `4k` / `uhd`, use `4k` (4K only). A trailing `1080p` means `1080p` only. Never go below 1080p.
 - Target: an IMDb ID (`tt` + digits, also accept a full imdb.com URL) or a title.
 - Best mode: the user says `最好` / `best` / `画质最好` / `音质最好` / `最高画质`. Add `--best -n 3` to the search (pure quality ranking, no per-resolution cap; never below 1080p): resolution → Remux > BluRay > WEB → Dolby Vision > HDR > SDR → lossless audio (TrueHD / DTS-HD MA / FLAC / PCM; a Remux counts as lossless) > DD+ / DTS > DD > AAC → Atmos → 7.1 > 5.1 → seeders, with <5-seeder rows always last. Show only those 3 rows. For a non-English film add one line: the Atmos/lossless tag may belong to the dub track — the original-language track on some discs is lossless 5.1 without Atmos; titles can't tell.
-- PikPak folder (optional): an argument starting with `/` (e.g. `/Movies`, `/电影/科幻`). Not given → default in step 6.
-- Adult mode: the user adds `18+` / `成人` / `xxx`. Then: skip the IMDb lookup and English-title rewrite (search the user's words or release code as given, e.g. `ssis 001`); search category `6000` instead of `2000,5000` with `--words` (match query words / release code instead of title similarity); **drop `--clean`** (adult titles are often Japanese/Chinese and dubs/subs don't apply); keep the quality filter; in step 4 only drop wrong-item / no-magnet rows (foreign titles are fine). Zero results → say so and offer to retry without `-q` (many adult releases omit the resolution from the title). Header line: `**<query>** · 18+ · <quality>`; default folder `/18+`; name per row = the release code if present, else a short cleaned title. Never use adult mode unless the user asked for it. **Hard rule:** refuse any query that refers to minors (teen-age framing, school-age, "loli"/"shota", ages under 18, etc.), and silently drop any result whose title does; no exceptions. Keep the table to release code / short neutral label, size, seeders — never write out explicit descriptions.
+- Adult mode: the user adds `18+` / `成人` / `xxx`. Then: skip the IMDb lookup and English-title rewrite (search the user's words or release code as given, e.g. `ssis 001`); search category `6000` instead of `2000,5000` with `--words` (match query words / release code instead of title similarity); **drop `--clean`** (adult titles are often Japanese/Chinese and dubs/subs don't apply); keep the quality filter; in step 4 only drop wrong-item / no-magnet rows (foreign titles are fine). Zero results → say so and offer to retry without `-q` (many adult releases omit the resolution from the title). Header line: `**<query>** · 18+ · <quality>`; 版本 per row = the release code if present, else a short cleaned title. Never use adult mode unless the user asked for it. **Hard rule:** refuse any query that refers to minors (teen-age framing, school-age, "loli"/"shota", ages under 18, etc.), and silently drop any result whose title does; no exceptions. Keep the table to release code / short neutral label, size, seeders — never write out explicit descriptions.
 
 ## Steps
 
@@ -29,7 +28,7 @@ User's standing requirements: **1080p or better** (never show lower), **original
 
 2. **Services start and stop themselves.** Each CLI run starts Jackett and FlareSolverr (if configured; folders live in `{SKILL_DIR}/config.json`) hidden if they are down and closes them (with Chrome children) when it exits, so every search pays ~15–30s startup. Never ask the user to launch anything; if it exits with `did not come up`, report that line.
 
-3. **Search.** The CLI parses every title with PTT, keeps movies+TV only, same title (±1 year, matching season/episode), drops dead torrents, CAM/TS, upscaled (incl. known regrade groups like iris2), 3D and BR-DISK (BDMV/ISO), drops hardsubbed and foreign-dub-only releases (`--clean` + `--lang`; Dual/Multi audio stays), de-duplicates across trackers, ranks healthy swarms (≥5 seeders) first, then resolution → source (Remux > BluRay > WEB-DL > WEBRip) → seeders, caps each resolution at half of `-n` for `1080p+`, adds a `Parsed` field (resolution, quality, codec, hdr, audio, group, languages…), and (`--magnet`) converts every result to a magnet link — the user downloads with PikPak (cloud), which cannot reach `127.0.0.1` Jackett links:
+3. **Search.** The CLI parses every title with PTT, keeps movies+TV only, same title (±1 year, matching season/episode), drops dead torrents, CAM/TS, upscaled (incl. known regrade groups like iris2), 3D and BR-DISK (BDMV/ISO), drops hardsubbed and foreign-dub-only releases (`--clean` + `--lang`; Dual/Multi audio stays), de-duplicates across trackers, ranks healthy swarms (≥5 seeders) first, then resolution → source (Remux > BluRay > WEB-DL > WEBRip) → seeders, caps each resolution at half of `-n` for `1080p+`, adds a `Parsed` field (resolution, quality, codec, hdr, audio, group, languages…), and (`--magnet`) converts every result to a magnet link — Jackett's `127.0.0.1` download links die when the CLI stops Jackett after the search:
    ```bash
    python "{SKILL_DIR}/jackett_cli.py" search "<phrase>" -c 2000,5000 -q <1080p+|4k|1080p> --clean --lang <xx> --title "<English title>" [--title "<original title>"] --magnet -n 10 --json
    ```
@@ -55,24 +54,21 @@ User's standing requirements: **1080p or better** (never show lower), **original
      ```
    - One line of recommendation (e.g. "想要画质好又不想太大，选第 3 或第 6 个（约 11GB，带 HDR）。").
    - Only if rows were dropped in step 4: one line saying which kind and why (e.g. "另有 1 条意大利语片名的版本，可能是意大利语配音，已略过。").
-   - Last line: `回复编号存进 PikPak 的 <folder>（可多选，如 3 或 3,6）。` — <folder> is the one step 6 will use.
+   - Last line: `回复编号开始下载（可多选，如 3 或 3,6）。`
 
    Then **stop and wait** for the user's pick. Keep the search JSON (full `MagnetUri`s) for step 6.
 
-6. **Save the picked rows to PikPak** (only after the user replies with numbers; they may also change the folder in that reply).
-   - Folder: the user's path if given, else `/<Title (Year)>` for a movie, `/<Show (Year)>/Season NN` for TV episodes.
-   - Name per row (no extension; the CLI keeps the file's own extension and makes names Windows-safe): movie `<Title> (<Year>)`; TV episode `<Show> - S01E02`; season pack `<Show> - Season 01`. Several picks of the same movie → append the 版本 label, e.g. `Dune (2021) 2160p Remux`, so names don't collide.
-   - Use the **full** `MagnetUri` from the search JSON (its trackers help PikPak resolve faster), not the shortened one shown:
+6. **Send the picked rows to the torrent client** (only after the user replies with numbers).
+   - Use the **full** `MagnetUri` from the search JSON (its trackers help the client find peers faster), not the shortened one shown; one argument per pick:
      ```bash
-     MSYS_NO_PATHCONV=1 python "{SKILL_DIR}/pikpak_cli.py" add "<folder>" -m "<name>" "<magnet>" [-m "<name>" "<magnet>" ...]
+     python "{SKILL_DIR}/download.py" "<magnet>" ["<magnet>" ...]
      ```
-     Keep `MSYS_NO_PATHCONV=1`: without it Git Bash rewrites `/your name` to `D:/git/your name` and the save lands in `/D -/git/...`. Check the output's `folder` equals the intended path.
-     Takes up to ~2 min: it waits for PikPak to resolve each torrent so it can rename it.
-   - Exit message `Not logged in` → tell the user to run `python "{SKILL_DIR}/pikpak_cli.py" login` in their own terminal (password stays out of the chat), then retry.
-   - **Subtitles (not in 18+ mode)**: right after the PikPak save, fetch the best Chinese subtitle for each saved row to the user's PC (not PikPak):
+     It launches the client set in `{SKILL_DIR}/config.json` once per magnet (or the system's default magnet app if none is set); the client saves into its own default folder. It prints `sent <magnet start>` per item.
+   - **Subtitles (not in 18+ mode)**: right after sending, fetch the best Chinese subtitle for each picked row:
      ```bash
      python "{SKILL_DIR}/subhd_cli.py" find "<Chinese title, or original title>" --year <year>
-     python "{SKILL_DIR}/subhd_cli.py" get <id> --release "<the picked torrent's full Title>" --dest "{SUBTITLE_DIR}/<same name as the PikPak folder, e.g. Your Name (2016)>"
+     python "{SKILL_DIR}/subhd_cli.py" get <id> --release "<the picked torrent's full Title>" --dest "{SUBTITLE_DIR}/<folder>"
      ```
+     `<folder>` = `<Title (Year)>` for a movie (e.g. `Your Name (2016)`), `<Show (Year)>/Season NN` for TV.
      `find` lists SubHD entries (`/d/` id = Douban id; names are "中文名 原名 (year)", TV is per season, e.g. "行尸走肉 第一季 The Walking Dead (2010)") — pick the one matching title + year (+ season). `get` ranks: season-pack subtitle first for a season-pack torrent > same source family as the torrent (BluRay vs WEB timing) > 精选推荐/官方/原创翻译/AI校对 > 双语 > 简体 > 繁体 > same release group > downloads; drops non-Chinese and image (SUP) subs; for an episode torrent keeps only that episode or season packs; unzips 7z/zip/rar with bsdtar (zip names read as GBK). Several episodes → one `get` per episode into the same `Season NN` folder. If it exits `SubHD refused the download` (verification asked), say so — never try to get around it. No Chinese subtitle → say so in one line.
-   - Reply in one or two lines: folder + final names, then the subtitle file(s) saved under `{SUBTITLE_DIR}/…`. Items whose `name` is null in the output were saved but not renamed yet (PikPak still resolving) — say so with their `original` name.
+   - Reply in one or two lines: which rows were sent to the client, then the subtitle folder under `{SUBTITLE_DIR}/…`.
