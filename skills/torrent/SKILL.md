@@ -76,12 +76,16 @@ User's standing requirements: **1080p or better** (never show lower), **original
      ```
      `<folder>` = `<Title (Year)>` for a movie (e.g. `Your Name (2016)`), `<Show (Year)>/Season NN` for TV.
      `find` lists SubHD entries (`/d/` id = Douban id; names are "中文名 原名 (year)", TV is per season, e.g. "行尸走肉 第一季 The Walking Dead (2010)") — pick the one matching title + year (+ season). `get` ranks: season-pack subtitle first for a season-pack torrent > same source family as the torrent (BluRay vs WEB timing) > 精选推荐/官方/原创翻译/AI校对 > 双语 > 简体 > 繁体 > same release group > downloads; drops non-Chinese and image (SUP) subs; for an episode torrent keeps only that episode or season packs; unzips 7z/zip/rar with bsdtar (zip names read as GBK). Several episodes → one `get` per episode into the same `Season NN` folder. If it exits `SubHD refused the download` (verification asked), say so — never try to get around it. No SubHD hit → try the sources below before saying there is no Chinese subtitle.
-   - **More subtitle sources** (`subs_cli.py`; anime order: sub_share → assrt → SubHD; otherwise SubHD → assrt → sub_share):
+   - **More subtitle sources** (`subs_cli.py`; Chinese only. Anime order: sub_share → acgrip → assrt → SubHD → xunlei; otherwise SubHD → assrt → xunlei):
      ```bash
      python "{SKILL_DIR}/subs_cli.py" share "<Chinese title>" --year <year>        # sub_share archive (anime, frozen Sep 2025)
      python "{SKILL_DIR}/subs_cli.py" share-get "<path>" --dest "{SUBTITLE_DIR}/<folder>" [--grep "\[05\]"]
      python "{SKILL_DIR}/subs_cli.py" assrt "<romaji or English title> [S01E05]"     # assrt.net
      python "{SKILL_DIR}/subs_cli.py" assrt-get <id> --dest "{SUBTITLE_DIR}/<folder>"
+     python "{SKILL_DIR}/subs_cli.py" acgrip "<Chinese title>"                       # Anime字幕论坛 threads
+     python "{SKILL_DIR}/subs_cli.py" acgrip-get <tid> --dest "{SUBTITLE_DIR}/<folder>" [--grep "\[05\]"]
+     python "{SKILL_DIR}/subs_cli.py" xunlei "<the picked torrent's full Title>" --dest "{SUBTITLE_DIR}/<folder>"   # last resort
      ```
      `share` lists every folder that directly holds subtitle files (`path`, `files` count, `sample` names), laid out as `<BD|TV>/<group>/<sc|tc|CHS|CHT>`: prefer 简体 (sc/CHS), the same fansub group or source (Web vs BD timing) as the picked torrent, and a file count matching the episodes; `--grep` keeps one episode. `assrt` lists Chinese subtitles (`id`, `name`, `video` file name, `group`, `lang`); pick the one whose `video` best matches the torrent title. If assrt exits asking for a token, tell the user once that it needs a free assrt.net token (`ASSRT_TOKEN` or `assrt_token` in `config.json`) and move on.
+     `acgrip` lists forum threads (`tid`, `title`, `snippet`, `date`): pick a subtitle-release thread for the right season (titles like `第二期/葬送的芙莉莲 …`, snippets naming a 字幕组), not discussion threads. `acgrip-get` downloads its subtitle attachments and also returns `links` + `codes` (cloud-drive links and their 提取码 posted instead of attachments): pass those to the user, don't open them. It needs the user's login cookie; if it exits asking for one or saying the cookie expired, tell the user once and move on. `xunlei` searches the Thunder player's subtitle index by the torrent title, downloads candidates and keeps only files whose text is Chinese (alone or bilingual); they are unreviewed, so it comes last.
    - Reply in one or two lines: which rows were sent to the client, then the subtitle folder under `{SUBTITLE_DIR}/…`.

@@ -103,4 +103,12 @@ for bad in ((mags, "C:/x/client.BAT"), (["C:/Windows/System32/calc.exe"], None))
         dl.launch(*bad); raise AssertionError(bad)
     except SystemExit:
         pass
+# subs_cli.chinese: keep Chinese (alone or bilingual), drop Japanese / English
+import subs_cli as sc
+ass = lambda *ls: ("[Script Info]\n[Events]\n" + "".join(f"Dialogue: 0,0:00:0{i}.00,0:00:0{i}.50,Default,,0,0,0,,{l}\n"
+                                                         for i, l in enumerate(ls))).encode("utf-8-sig")
+assert sc.chinese(ass("何事かと思ったが", "我还以为发生了什么", "魔族に襲われた", "被魔族袭击的故乡"))  # 中日双语
+assert sc.chinese("1\n00:00:01,000 --> 00:00:02,000\n沙丘\n\n2\n00:00:03,000 --> 00:00:04,000\n香料\n".encode("gb18030"))
+assert not sc.chinese(ass("ひどい臭いだろう", "なぜ", "魔族に襲われた故郷"))
+assert not sc.chinese(ass("Your legacy is one of death.", "Tell me what happened."))
 print("all ok")
